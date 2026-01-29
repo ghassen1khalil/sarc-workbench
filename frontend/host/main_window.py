@@ -8,12 +8,15 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QApplication,
     QHBoxLayout,
+    QLabel,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
     QStackedWidget,
+    QVBoxLayout,
     QWidget,
 )
+from PyQt6.QtWidgets import QStyle
 
 from .plugin_manager import PluginManager
 
@@ -29,14 +32,30 @@ class MainWindow(QMainWindow):
         active_plugins = plugin_manager.get_active_plugins()
 
         self.sidebar = QListWidget()
-        self.sidebar.setFixedWidth(220)
+        self.sidebar.setFixedWidth(240)
+        self.sidebar.setSpacing(4)
+        self.sidebar.setStyleSheet(
+            "QListWidget { background: #f6f7fb; border: none; }"
+            "QListWidget::item { padding: 8px; border-radius: 6px; }"
+            "QListWidget::item:selected { background: #dfe7ff; color: #1f2d5a; }"
+        )
         self.sidebar.currentRowChanged.connect(self._switch_plugin)
 
         self.stack = QStackedWidget()
         self._populate_plugins(active_plugins)
 
+        sidebar_header = QLabel("Modules")
+        sidebar_header.setStyleSheet("font-weight: 600; padding: 6px;")
+
+        sidebar_container = QWidget()
+        sidebar_layout = QVBoxLayout()
+        sidebar_layout.setContentsMargins(6, 6, 6, 6)
+        sidebar_layout.addWidget(sidebar_header)
+        sidebar_layout.addWidget(self.sidebar)
+        sidebar_container.setLayout(sidebar_layout)
+
         layout = QHBoxLayout()
-        layout.addWidget(self.sidebar)
+        layout.addWidget(sidebar_container)
         layout.addWidget(self.stack, stretch=1)
 
         container = QWidget()
@@ -47,8 +66,11 @@ class MainWindow(QMainWindow):
             self.sidebar.setCurrentRow(0)
 
     def _populate_plugins(self, plugins: List[Tuple[str, QWidget]]) -> None:
+        style = QApplication.style()
         for name, widget in plugins:
             item = QListWidgetItem(name)
+            if name == "Requirements Checker":
+                item.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_ComputerIcon))
             item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             self.sidebar.addItem(item)
             self.stack.addWidget(widget)
