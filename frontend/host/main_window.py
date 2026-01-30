@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QDockWidget,
     QStackedWidget,
     QStatusBar,
     QVBoxLayout,
@@ -20,6 +21,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtWidgets import QStyle
 
 from .admin_panel import AdminWidget
+from .log_viewer import LogConsole
 from .plugin_manager import PluginManager
 
 
@@ -46,6 +48,8 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
+        self.log_console = LogConsole()
+        self._add_log_dock()
 
         self._plugin_items: dict[str, QListWidgetItem] = {}
         self._plugin_widgets: dict[str, QWidget] = {}
@@ -104,6 +108,12 @@ class MainWindow(QMainWindow):
         item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.sidebar.addItem(item)
         self.stack.addWidget(admin_widget)
+
+    def _add_log_dock(self) -> None:
+        dock = QDockWidget("Logs", self)
+        dock.setWidget(self.log_console)
+        dock.setAllowedAreas(Qt.DockWidgetArea.BottomDockWidgetArea)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock)
 
     def on_plugin_toggled(self, name: str, enabled: bool) -> None:
         if enabled:
@@ -165,6 +175,9 @@ class MainWindow(QMainWindow):
     def apply_theme(self, theme_name: str) -> None:
         _ = theme_name
         return
+
+    def append_log(self, level: str, message: str) -> None:
+        self.log_console.append_log(level, message)
 
     @staticmethod
     def _load_config(config_path: Path) -> dict:
