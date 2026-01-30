@@ -13,11 +13,13 @@ from PyQt6.QtWidgets import (
     QListWidgetItem,
     QMainWindow,
     QStackedWidget,
+    QStatusBar,
     QVBoxLayout,
     QWidget,
 )
 from PyQt6.QtWidgets import QStyle
 
+from .admin_panel import AdminWidget
 from .plugin_manager import PluginManager
 
 
@@ -28,8 +30,8 @@ class MainWindow(QMainWindow):
         self.resize(900, 600)
 
         config = self._load_config(config_path)
-        plugin_manager = PluginManager(config)
-        active_plugins = plugin_manager.get_active_plugins()
+        self._plugin_manager = PluginManager(config)
+        active_plugins = self._plugin_manager.get_active_plugins()
 
         self.sidebar = QListWidget()
         self.sidebar.setFixedWidth(240)
@@ -42,6 +44,13 @@ class MainWindow(QMainWindow):
         self.sidebar.currentRowChanged.connect(self._switch_plugin)
 
         self.stack = QStackedWidget()
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+
+        self._plugin_items: dict[str, QListWidgetItem] = {}
+        self._plugin_widgets: dict[str, QWidget] = {}
+
+        self._add_admin_panel(config)
         self._populate_plugins(active_plugins)
 
         sidebar_header = QLabel("Modules")
@@ -74,10 +83,87 @@ class MainWindow(QMainWindow):
             item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             self.sidebar.addItem(item)
             self.stack.addWidget(widget)
+            plugin_key = self._plugin_key_from_display(name)
+            self._plugin_items[plugin_key] = item
+            self._plugin_widgets[plugin_key] = widget
 
     def _switch_plugin(self, index: int) -> None:
         if index >= 0:
             self.stack.setCurrentIndex(index)
+
+    def _add_admin_panel(self, config: dict) -> None:
+        plugins_config = config.get("plugins", {})
+        admin_widget = AdminWidget(
+            api_base_url="http://127.0.0.1:8000",
+            plugins_config=plugins_config,
+        )
+        admin_widget.plugin_toggled_signal.connect(self.on_plugin_toggled)
+
+        item = QListWidgetItem("Administration")
+        item.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView))
+        item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.sidebar.addItem(item)
+        self.stack.addWidget(admin_widget)
+
+    def on_plugin_toggled(self, name: str, enabled: bool) -> None:
+        if enabled:
+            widget = self._plugin_manager.load_plugin_widget(name)
+            if widget is None:
+                self.status_bar.showMessage(
+                    f"Impossible de charger le module {name}.", 4000
+                )
+                return
+
+            if name in self._plugin_widgets:
+                self.status_bar.showMessage(f"Module {name} déjà actif.", 3000)
+                return
+
+            display_name = self._display_name_from_key(name)
+            item = QListWidgetItem(display_name)
+            item.setIcon(self._plugin_icon(display_name))
+            item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            self.sidebar.addItem(item)
+            self.stack.addWidget(widget)
+            self._plugin_items[name] = item
+            self._plugin_widgets[name] = widget
+            self.status_bar.showMessage(f"Module {display_name} activé.", 3000)
+            return
+
+        item = self._plugin_items.pop(name, None)
+        widget = self._plugin_widgets.pop(name, None)
+        if item is None or widget is None:
+            self.status_bar.showMessage(f"Module {name} déjà désactivé.", 3000)
+            return
+
+        widget_index = self.stack.indexOf(widget)
+        if widget_index != -1:
+            self.stack.removeWidget(widget)
+        widget.deleteLater()
+
+        row = self.sidebar.row(item)
+        self.sidebar.takeItem(row)
+        self.status_bar.showMessage(f"Module {name} désactivé.", 3000)
+
+    def _plugin_icon(self, display_name: str):
+        if display_name == "Requirements Checker":
+            return self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
+        return self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogListView)
+
+    @staticmethod
+    def _display_name_from_key(plugin_key: str) -> str:
+        if plugin_key == "requirements_checker":
+            return "Requirements Checker"
+        return plugin_key.replace("_", " ").title()
+
+    @staticmethod
+    def _plugin_key_from_display(display_name: str) -> str:
+        if display_name == "Requirements Checker":
+            return "requirements_checker"
+        return display_name.lower().replace(" ", "_")
+
+    def apply_theme(self, theme_name: str) -> None:
+        _ = theme_name
+        return
 
     @staticmethod
     def _load_config(config_path: Path) -> dict:
