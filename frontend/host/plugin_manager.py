@@ -60,6 +60,9 @@ class PluginManager:
     def get_plugin_widget(self, plugin_name: str) -> QWidget | None:
         return self._instances.get(plugin_name)
 
+    def unload_plugin_widget(self, plugin_name: str) -> None:
+        self._instances.pop(plugin_name, None)
+
     @staticmethod
     def _build_api_url(plugin_settings: dict) -> str:
         host = plugin_settings.get("host", "127.0.0.1")

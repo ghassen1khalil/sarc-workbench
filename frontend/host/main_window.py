@@ -135,6 +135,7 @@ class MainWindow(QMainWindow):
             self.status_bar.showMessage(f"Module {name} déjà désactivé.", 3000)
             return
 
+        self._plugin_manager.unload_plugin_widget(name)
         widget_index = self.stack.indexOf(widget)
         if widget_index != -1:
             self.stack.removeWidget(widget)
