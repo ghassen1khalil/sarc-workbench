@@ -87,6 +87,7 @@ class MainWindow(QMainWindow):
             item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             self.sidebar.addItem(item)
             self.stack.addWidget(widget)
+            self._attach_log_stream(widget)
             plugin_key = self._plugin_key_from_display(name)
             self._plugin_items[plugin_key] = item
             self._plugin_widgets[plugin_key] = widget
@@ -134,6 +135,7 @@ class MainWindow(QMainWindow):
             item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             self.sidebar.addItem(item)
             self.stack.addWidget(widget)
+            self._attach_log_stream(widget)
             self._plugin_items[name] = item
             self._plugin_widgets[name] = widget
             self.status_bar.showMessage(f"Module {display_name} activé.", 3000)
@@ -178,6 +180,15 @@ class MainWindow(QMainWindow):
 
     def append_log(self, level: str, message: str) -> None:
         self.log_console.append_log(level, message)
+
+    def _attach_log_stream(self, widget: QWidget) -> None:
+        if getattr(widget, "_log_stream_attached", False):
+            return
+        log_signal = getattr(widget, "log_signal", None)
+        if log_signal is None:
+            return
+        log_signal.connect(self.append_log)
+        setattr(widget, "_log_stream_attached", True)
 
     @staticmethod
     def _load_config(config_path: Path) -> dict:

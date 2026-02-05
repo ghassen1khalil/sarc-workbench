@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Dict
 
 import requests
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -19,7 +20,12 @@ from PyQt6.QtWidgets import (
 )
 
 
+MODULE_NAME = "requirements_checker"
+
+
 class RequirementsCheckerWidget(QWidget):
+    log_signal = pyqtSignal(str, str)
+
     def __init__(self, api_url: str = "http://localhost:8001/system/stats") -> None:
         super().__init__()
         self.api_url = api_url
@@ -102,6 +108,7 @@ class RequirementsCheckerWidget(QWidget):
         self.setLayout(layout)
 
     def refresh_stats(self) -> None:
+        self._emit_log("DEBUG", "Utilisateur a cliqué sur Actualiser")
         self.status_label.setText("Mise à jour en cours...")
         self.status_label.setStyleSheet("color: #4a4a4a;")
         try:
@@ -110,12 +117,14 @@ class RequirementsCheckerWidget(QWidget):
         except requests.RequestException as exc:
             self.status_label.setText(f"Erreur: {exc}")
             self.status_label.setStyleSheet("color: #a11a1a;")
+            self._emit_log("ERROR", f"Echec de la mise à jour des statistiques: {exc}")
             return
 
         data: Dict[str, Any] = response.json()
         self._update_values(data)
         self.status_label.setText("Données mises à jour.")
         self.status_label.setStyleSheet("color: #2f6f2f;")
+        self._emit_log("INFO", "Statistiques système mises à jour avec succès.")
 
     def _update_values(self, data: Dict[str, Any]) -> None:
         cpu = data.get("cpu", {})
@@ -141,3 +150,8 @@ class RequirementsCheckerWidget(QWidget):
                 return f"{size:.1f} {unit}"
             size /= 1024
         return f"{size:.1f} PB"
+
+    def _emit_log(self, level: str, message: str) -> None:
+        timestamp = datetime.now().isoformat()
+        formatted = f"{timestamp} - {MODULE_NAME} - {message}"
+        self.log_signal.emit(level.upper(), formatted)

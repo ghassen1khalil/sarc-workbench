@@ -25,11 +25,11 @@ class LogConsole(QPlainTextEdit):
         fmt = QTextCharFormat()
         level_name = level.upper()
         if level_name in {"ERROR", "CRITICAL"}:
-            fmt.setForeground(QColor("#ff5c5c"))
+            fmt.setForeground(QColor("#ff4d4f"))
         elif level_name == "WARNING":
             fmt.setForeground(QColor("#ffcc66"))
         elif level_name == "INFO":
-            fmt.setForeground(QColor("#7cd3ff"))
+            fmt.setForeground(QColor("#5CFF7D"))
         else:
             fmt.setForeground(QColor("#d9d9d9"))
         return fmt
