@@ -39,8 +39,9 @@ project_root/
 1. **Isolation** : Pas de dépendance à `PyQt`, `tkinter` ou autre lib graphique.
 2. **Configuration** : Le port et les paramètres doivent être configurables (via `conf/application_config.yaml` géré par le Core).
 3. **Logging Centralisé :**
-    - Ne jamais utiliser `print()`.
-    - Utiliser `logging`. Configurer un Handler pour envoyer les logs critiques au **Core Service** (`POST /system/logs`).
+    * **INTERDICTION :** Ne jamais utiliser `print()`.
+    * **OBLIGATION :** Utiliser le `LoggingClient` du plugin pour envoyer les événements critiques au **Core Service** via `POST /system/logs`.
+    * Chaque action métier (ex: "Calcul lancé", "Fichier sauvegardé") doit générer une log.
 
 **Template Obligatoire (`main.py`) :**
 
@@ -75,6 +76,7 @@ def health_check():
     - Tout appel réseau ou traitement > 100ms doit être exécuté dans un QThread ou via un Worker asynchrone.
     - Afficher un indicateur de chargement (spinner ou texte) pendant les requêtes.
 5. **Nettoyage :** Implémenter le nettoyage des threads/timers à la fermeture du widget (closeEvent).
+6. **Logging UI :** * Toute interaction utilisateur majeure (clic bouton, changement de config) doit être logguée localement (Console du Host) et, si critique, envoyée au Core Service.
 
 **Template Obligatoire (`ui.py`) :**
 ```python
@@ -120,4 +122,37 @@ class PluginWidget(QWidget):
 2. **Gestion d'Erreur UI :** Si le Backend est éteint, le Frontend ne doit pas crasher. Il doit afficher un message "Service indisponible" ou un bouton "Retry".
 3. **Dépendances :** Si le plugin nécessite une lib externe (ex: `pandas`), l'ajouter explicitement dans un fichier `requirements.txt` propre au plugin ou au projet global.
 
-#### **FIN DES DIRECTIVES.** Si tu as compris, analyse la tâche demandée et génère le code en respectant scrupuleusement ces séparations.
+## 7. STANDARD DE LOGGING (Nouveau)
+
+Pour assurer la traçabilité, chaque module doit suivre ce flux de logging :
+
+### A. Niveaux de Log à utiliser :
+* **DEBUG :** Détails techniques (ex: "Requête HTTP envoyée à localhost:8001").
+* **INFO :** Actions utilisateur ou étapes métier réussies (ex: "Actualisation des données terminée").
+* **WARNING :** Problème mineur récupérable (ex: "Timeout léger, nouvelle tentative").
+* **ERROR :** Échec d'une opération (ex: "Impossible de joindre le service Requirements Checker").
+
+### B. Format du message :
+Le message doit toujours être structuré comme suit :
+`[NOM_MODULE] - [ACTION] - [DETAILS]`
+*Exemple : `[REQ_CHECKER] - REFRESH - Lancement de l'analyse système.`*
+
+### C. Implémentation Backend (Template) :
+Chaque plugin Backend doit avoir une fonction utilitaire pour router les logs vers le Core :
+```python
+def send_central_log(level: str, message: str):
+    payload = {
+        "module": "requirements_checker",
+        "level": level,
+        "message": message,
+        "timestamp": datetime.now().isoformat()
+    }
+    try:
+        requests.post("http://localhost:8000/system/logs", json=payload, timeout=0.5)
+    except:
+        pass # Ne pas bloquer le service si le logger central est down
+```
+
+#### **FIN DES DIRECTIVES.** 
+
+Si tu as compris, analyse la tâche demandée et génère le code en respectant scrupuleusement ces séparations.
